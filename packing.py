@@ -1,7 +1,7 @@
 from enum import IntEnum
 from PIL import Image
 from copy import copy, deepcopy
-from random import random
+from random import random, shuffle
 
 class TipoBloco(IntEnum):
     VAZIO = 0
@@ -11,14 +11,22 @@ class TipoBloco(IntEnum):
     IMPOSSIVEL = 4
 
 enumPercursos = {
-    0: (False, False, False),
-    1: (False, False, True),
-    2: (False, True, False),
-    3: (False, True, True),
-    4: (True, False, False),
-    5: (True, False, True),
-    6: (True, True, False),
-    7: (True, True, True)
+    0: (False, False, False, False),
+    1: (False, False, False, True),
+    2: (False, False, True, False),
+    3: (False, False, True, True),
+    4: (False, True, False, False),
+    5: (False, True, False, True),
+    6: (False, True, True, False),
+    7: (False, True, True, True),
+    8: (True, False, False, False),
+    9: (True, False, False, True),
+    10: (True, False, True, False),
+    11: (True, False, True, True),
+    12: (True, True, False, False),
+    13: (True, True, False, True),
+    14: (True, True, True, False),
+    15: (True, True, True, True)
 }
 
 def nova_chance(x, y, largura):
@@ -116,8 +124,8 @@ def matriz_para_imagem(matriz, largura, altura, fator, grade):
     fator = fator + correcao
 
     lista_cores = [(255, 255, 255), (127, 127, 127), (16, 16, 192), 
-        (16, 192, 16), (192, 16, 192), (127, 0, 0), (255, 64, 0), 
-        (255, 128, 0), (255, 192, 0), (255, 255, 0)]
+        (16, 192, 16), (192, 16, 192), (0, 255, 255), (127, 0, 0), 
+        (255, 64, 0), (255, 128, 0), (255, 192, 0), (255, 255, 0)]
     paleta = [lista_cores[i][j] if i < len(lista_cores) else 0 
         for i in range(256) for j in range(3)]
 
@@ -206,7 +214,7 @@ def preencher_paridade(matriz, largura, altura, par):
 
 def mapear_paridade(matriz, largura, altura):
 
-    PAR_OFFSET = 5
+    PAR_OFFSET = 6
 
     matriz_cp = copy(matriz)
 
@@ -221,7 +229,7 @@ def pintar_buracos(matriz, largura, altura):
                 num_paridades(matriz, largura, altura, x, y) == 0):
                 matriz[y][x] = TipoBloco.BURACO
 
-def gerarPercurso(startOnX, invX, invY, rangeX, rangeY):
+def gerarPercurso(bpd, startOnX, invX, invY, rangeX, rangeY):
     lista = []
     rangeX = list(reversed(rangeX)) if invX else rangeX
     rangeY = list(reversed(rangeY)) if invY else rangeY
@@ -231,6 +239,8 @@ def gerarPercurso(startOnX, invX, invY, rangeX, rangeY):
     for a in rangeA:
         for b in rangeB:
             lista.append((a, b) if startOnX else (b, a))
+        if bpd:
+            rangeB = list(reversed(rangeB))
     return lista
 
 def gerarPercursos(rangeX, rangeY):
@@ -240,51 +250,61 @@ def gerarPercursos(rangeX, rangeY):
         listas[i] = gerarPercurso(enumPercursos[i][0], 
             enumPercursos[i][1], 
             enumPercursos[i][2],
+            enumPercursos[i][3],
             rangeX, rangeY)
 
     return listas
 
 def calcular_percurso(matriz, largura, altura, percurso):
     
-    soma = [0, 0, 0, 0]
+    soma = [0, 0, 0, 0, 0]
 
-    matrizes = [[[None for _ in range(largura)] for __ in range(altura)] for ___ in range(4)]
+    matrizes = [[[None for _ in range(largura)] for __ in range(altura)] for ___ in range(5)]
 
-    for p in range(4):
+    for p in range(5):
         for y in range(altura):
             for x in range(largura):
                 matrizes[p][y][x] = int(matriz[y][x])
         
         soma[p] = preencher_percurso(matrizes[p], largura, altura, percurso, p)
 
-    #print(soma)
+    print(soma)
     return soma
 
 def melhor_percurso(matriz, percursos, largura, altura):
 
-    melhor_soma = [0, 0, 0, 0]
+    melhor_soma = [0, 0, 0, 0, 0]
     melhor_paridade = 0
     melhor_percurso = []
 
     for percurso in percursos:
         soma = calcular_percurso(matriz, largura, altura, percurso)
 
-        for p in range(4):
+        for p in range(5):
             if soma[p] > melhor_soma[melhor_paridade]:
                 melhor_paridade = p
                 melhor_soma = soma
                 melhor_percurso = percurso
 
-    #print((melhor_paridade, melhor_soma[melhor_paridade]))
+    print((melhor_paridade, melhor_soma[melhor_paridade]))
 
     return melhor_percurso, melhor_paridade
 
 def preencher_percurso(matriz, largura, altura, percurso, par):
     soma = 0
-    for point in percurso:
-        if paridade(matriz, largura, altura, par, point[0], point[1]):
-            preencher(matriz, par, point[0], point[1])
-            soma += 1
+    if par == 4:
+        for point in percurso:
+            rangeP = list(range(4))
+            shuffle(rangeP)
+            for p in rangeP:
+                if paridade(matriz, largura, altura, p, point[0], point[1]):
+                    preencher(matriz, p, point[0], point[1])
+                    soma += 1
+    else:
+        for point in percurso:
+            if paridade(matriz, largura, altura, par, point[0], point[1]):
+                preencher(matriz, par, point[0], point[1])
+                soma += 1
     
     return soma
 
@@ -296,27 +316,70 @@ def pintar_impossiveis(matriz, largura, altura):
 
                 matriz[y][x] = TipoBloco.IMPOSSIVEL
 
+def borda(matriz, largura, altura, x, y):
+
+    if (matriz[y][x] != TipoBloco.VAZIO and 
+        (x == 0 or y == 0 or x == largura-1 or y == altura-1 or
+        matriz[y][x-1] == TipoBloco.VAZIO or 
+        matriz[y][x+1] == TipoBloco.VAZIO or 
+        matriz[y-1][x] == TipoBloco.VAZIO or 
+        matriz[y+1][x] == TipoBloco.VAZIO)): 
+
+        return True
+    
+    return False
+
+def pintar_borda(matriz, largura, altura):
+    for y in range(altura):
+        for x in range(largura):
+            if borda(matriz, largura, altura, x, y):
+
+                matriz[y][x] = 5
+
 def quantidade_blocos(matriz, largura, altura):
-    soma = [0 for _ in range(len(TipoBloco))]
+    soma = [0 for _ in range(len(TipoBloco) + 4)]
 
     for y in range(altura):
         for x in range(largura):
             soma[matriz[y][x]] += 1
 
+            if not matriz[y][x] == TipoBloco.VAZIO:
+                if not borda(matriz, largura, altura, x, y):
+                    soma[6] += 1
+                    if matriz[y][x] == TipoBloco.PREENCHIDO:
+                        soma[5] += 1
+                else:
+                    soma[8] += 1
+                    if matriz[y][x] == TipoBloco.PREENCHIDO:
+                        soma[7] += 1
+                
+
     return soma
+
+def gerar_relatorio(quantidades):
+    print('Nao Vazios: ' + str(quantidades[2]+quantidades[3]+quantidades[4]) + ' = {Preenchidos: ' + str(quantidades[2]) + 
+        '; Buracos: ' + str(quantidades[3]) + '; Impossiveis: ' + str(quantidades[4]) + '}')
+    try:
+        print('% Possiveis Preenchidos: ' + str(round((quantidades[2]/(quantidades[2]+quantidades[3]) * 100), 2)) + '%')
+    except ZeroDivisionError:
+        pass
+    try:
+        print('% Interior Preenchido: ' + str(round((quantidades[5]/(quantidades[6]) * 100), 2)) + '%')
+    except ZeroDivisionError:
+        pass
+    try:
+        print('% Borda Preenchida: ' + str(round((quantidades[7]/(quantidades[8]) * 100), 2)) + '%')
+    except ZeroDivisionError:
+        pass
 
 ######################################################################################
 
 def main():
 
-    #matriz, largura, altura = matriz_de_arquivo('imagens/64_0.png')
+    #matriz, largura, altura = matriz_de_arquivo('../imagens/32_0.png')
 
     largura = altura = 64
     matriz = matriz_aleatoria(largura)
-
-    #mapear_paridade(matriz, largura, altura)
-
-    #matriz_para_imagem(matriz, largura, altura, 12, True).show()
 
     pintar_impossiveis(matriz, largura, altura)
     percursos = gerarPercursos(range(largura), range(altura))
@@ -324,15 +387,9 @@ def main():
     preencher_percurso(matriz, largura, altura, percurso, paridade)
     pintar_buracos(matriz, largura, altura)
 
-    qtd = quantidade_blocos(matriz, largura, altura)
-    print('Nao Vazios: ' + str(qtd[2]+qtd[3]+qtd[4]) + ' = {Preenchidos: ' + str(qtd[2]) + 
-        '; Buracos: ' + str(qtd[3]) + '; Impossiveis: ' + str(qtd[4]) + '}')
-    try:
-        print('% Possiveis Preenchidos: ' + str(round((qtd[2]/(qtd[2]+qtd[3]) * 100), 2)) + '%')
-    except ZeroDivisionError:
-        pass
+    gerar_relatorio(quantidade_blocos(matriz, largura, altura))
 
-    matriz_para_imagem(matriz, largura, altura, 8, True).show()
+    matriz_para_imagem(matriz, largura, altura, 8, False).show()
 
 
 if __name__ == "__main__":
