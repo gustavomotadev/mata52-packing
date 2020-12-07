@@ -1,7 +1,7 @@
 from enum import IntEnum
 from PIL import Image
 from copy import copy, deepcopy
-from random import random, shuffle
+from random import random
 
 class TipoBloco(IntEnum):
     VAZIO = 0
@@ -27,6 +27,25 @@ enumPercursos = {
     13: (True, True, False, True),
     14: (True, True, True, False),
     15: (True, True, True, True)
+}
+
+enumEspirais = {
+    0: (False, False, 0),
+    1: (False, False, 1),
+    2: (False, False, 2),
+    3: (False, False, 3),
+    4: (False, True, 0),
+    5: (False, True, 1),
+    6: (False, True, 2),
+    7: (False, True, 3),
+    8: (True, False, 0),
+    9: (True, False, 1),
+    10: (True, False, 2),
+    11: (True, False, 3),
+    12: (True, True, 0),
+    13: (True, True, 1),
+    14: (True, True, 2),
+    15: (True, True, 3)
 }
 
 def nova_chance(x, y, largura):
@@ -243,68 +262,134 @@ def gerarPercurso(bpd, startOnX, invX, invY, rangeX, rangeY):
             rangeB = list(reversed(rangeB))
     return lista
 
+def parte_espiral(num, xMinMax, yMinMax):
+
+    lista = []
+    MIN = 0
+    MAX = 1
+
+    if num == 0:
+        for x in range(xMinMax[MIN], xMinMax[MAX]):
+            lista.append((x, yMinMax[MIN]))
+    elif num == 1:
+        for y in range(yMinMax[MIN], yMinMax[MAX]):
+            lista.append((xMinMax[MAX], y))
+    elif num == 2:
+        for x in range(xMinMax[MAX], xMinMax[MIN], -1):
+            lista.append((x, yMinMax[MAX]))
+    elif num == 3:
+        for y in range(yMinMax[MAX], yMinMax[MIN], -1):
+            lista.append((xMinMax[MIN], y))
+
+    return lista
+
+def percurso_espiral(xMinMax, yMinMax, invertido, sentido, ordem):
+    
+    lista = []
+    MIN = 0
+    MAX = 1
+    _ordem = [0, 1, 2, 3]
+    _ordem = _ordem[ordem:] + _ordem[:ordem]
+    xMaxBackup = xMinMax[MAX]
+
+    while xMinMax[MAX] > xMinMax[MIN] and yMinMax[MAX] > yMinMax[MIN]:
+
+        for p in _ordem:
+            lista.extend(parte_espiral(p, xMinMax, yMinMax))
+
+        xMinMax[MIN] += 1
+        xMinMax[MAX] -= 1
+        yMinMax[MIN] += 1
+        yMinMax[MAX] -= 1
+
+    #caso base
+    if xMinMax[MIN] == xMinMax[MAX] == yMinMax[MIN] == yMinMax[MAX]:
+        #celula unica
+        lista.append((xMinMax[MIN], xMinMax[MAX]))
+    elif xMinMax[MIN] == xMinMax[MAX] or yMinMax[MIN] == yMinMax[MAX]:
+        #linha/coluna
+        lista.extend(parte_espiral(_ordem[0], xMinMax, yMinMax))
+        lista.extend(parte_espiral(_ordem[2], xMinMax, yMinMax)[:1])
+        lista.extend(parte_espiral(_ordem[1], xMinMax, yMinMax))
+        lista.extend(parte_espiral(_ordem[3], xMinMax, yMinMax)[:1])
+
+    if sentido:
+        for i in range(len(lista)):
+            lista[i] = (xMaxBackup-lista[i][0], lista[i][1])
+
+    if invertido:
+        lista = list(reversed(lista))
+
+    return lista
+
 def gerarPercursos(rangeX, rangeY):
-    listas = [None for _ in range(len(enumPercursos))]
+    listas = [None for _ in range(
+        len(enumPercursos) + len(enumEspirais))]
 
     for i in range(len(enumPercursos)):
-        listas[i] = gerarPercurso(enumPercursos[i][0], 
+        listas[i] = gerarPercurso(
+            enumPercursos[i][0], 
             enumPercursos[i][1], 
             enumPercursos[i][2],
             enumPercursos[i][3],
             rangeX, rangeY)
 
+    for i in range(len(enumEspirais)):
+        listas[i + len(enumPercursos)] = percurso_espiral(
+            [rangeX[0], rangeX[-1]], 
+            [rangeY[0], rangeY[-1]], 
+            enumEspirais[i][0], 
+            enumEspirais[i][1], 
+            enumEspirais[i][2])
+
     return listas
 
 def calcular_percurso(matriz, largura, altura, percurso):
     
-    soma = [0, 0, 0, 0, 0]
+    soma = [0, 0, 0, 0]
 
-    matrizes = [[[None for _ in range(largura)] for __ in range(altura)] for ___ in range(5)]
+    matrizes = [[[None for _ in range(largura)] for __ in range(altura)] for ___ in range(4)]
 
-    for p in range(5):
+    for p in range(4):
         for y in range(altura):
             for x in range(largura):
                 matrizes[p][y][x] = int(matriz[y][x])
         
         soma[p] = preencher_percurso(matrizes[p], largura, altura, percurso, p)
 
-    print(soma)
+    #print(soma) #DEBUG
     return soma
 
 def melhor_percurso(matriz, percursos, largura, altura):
 
-    melhor_soma = [0, 0, 0, 0, 0]
+    melhor_soma = [0, 0, 0, 0]
     melhor_paridade = 0
     melhor_percurso = []
 
     for percurso in percursos:
         soma = calcular_percurso(matriz, largura, altura, percurso)
 
-        for p in range(5):
+        for p in range(4):
             if soma[p] > melhor_soma[melhor_paridade]:
                 melhor_paridade = p
                 melhor_soma = soma
                 melhor_percurso = percurso
 
-    print((melhor_paridade, melhor_soma[melhor_paridade]))
+    #DEBUG
+    #print((percursos.index(melhor_percurso), melhor_paridade, melhor_soma[melhor_paridade]))
 
-    return melhor_percurso, melhor_paridade
+    return (melhor_percurso, 
+        percursos.index(melhor_percurso), 
+        melhor_paridade, 
+        melhor_soma[melhor_paridade])
 
 def preencher_percurso(matriz, largura, altura, percurso, par):
     soma = 0
-    if par == 4:
-        for point in percurso:
-            rangeP = list(range(4))
-            shuffle(rangeP)
-            for p in rangeP:
-                if paridade(matriz, largura, altura, p, point[0], point[1]):
-                    preencher(matriz, p, point[0], point[1])
-                    soma += 1
-    else:
-        for point in percurso:
-            if paridade(matriz, largura, altura, par, point[0], point[1]):
-                preencher(matriz, par, point[0], point[1])
-                soma += 1
+    
+    for point in percurso:
+        if paridade(matriz, largura, altura, par, point[0], point[1]):
+            preencher(matriz, par, point[0], point[1])
+            soma += 1
     
     return soma
 
@@ -356,41 +441,86 @@ def quantidade_blocos(matriz, largura, altura):
 
     return soma
 
-def gerar_relatorio(quantidades):
-    print('Nao Vazios: ' + str(quantidades[2]+quantidades[3]+quantidades[4]) + ' = {Preenchidos: ' + str(quantidades[2]) + 
+def gerar_relatorio(quantidades, largura, altura, tipo, embutidos):
+    
+    print('Blocos 2x2 embutidos: ' + str(embutidos))
+    print('Tipo da solucao: ', end='')
+    if tipo < 8:
+        print('Varredura ' + str(tipo))
+    elif tipo < 16:
+        print('Boustrophedon ' + str(tipo - 8))
+    elif tipo < 24:
+        print('Espiral Decrescente ' + str(tipo - 16))
+    elif tipo < 32:
+        print('Espiral Crescente ' + str(tipo - 24))
+    print('Largura x Altura: ' + str(largura) + ' x ' + str(altura) + ' = ' + str(largura*altura))
+    print('Celulas nao vazias: ' + str(quantidades[2]+quantidades[3]+quantidades[4]) + ' = {Preenchidas: ' + str(quantidades[2]) + 
         '; Buracos: ' + str(quantidades[3]) + '; Impossiveis: ' + str(quantidades[4]) + '}')
     try:
-        print('% Possiveis Preenchidos: ' + str(round((quantidades[2]/(quantidades[2]+quantidades[3]) * 100), 2)) + '%')
+        print('% Possiveis preenchidas: ' + str(round((quantidades[2]/(quantidades[2]+quantidades[3]) * 100), 2)) + '%')
     except ZeroDivisionError:
         pass
     try:
-        print('% Interior Preenchido: ' + str(round((quantidades[5]/(quantidades[6]) * 100), 2)) + '%')
+        print('% Interior preenchido: ' + str(round((quantidades[5]/(quantidades[6]) * 100), 2)) + '%')
     except ZeroDivisionError:
         pass
     try:
-        print('% Borda Preenchida: ' + str(round((quantidades[7]/(quantidades[8]) * 100), 2)) + '%')
+        print('% Borda preenchida: ' + str(round((quantidades[7]/(quantidades[8]) * 100), 2)) + '%')
     except ZeroDivisionError:
         pass
+
+def crop(matriz, largura, altura):
+    minX = minY = 999999
+    maxX = maxY = 0
+
+    for y in range(altura):
+        for x in range(largura):
+            if matriz[y][x] != TipoBloco.VAZIO:
+
+                if x < minX:
+                    minX = x
+                elif x > maxX:
+                    maxX = x
+
+                if y < minY:
+                    minY = y
+                elif y > maxY:
+                    maxY = y
+
+    nova_largura = maxX - minX + 1
+    nova_altura = maxY - minY + 1
+    nova_matriz = [[None for _ in range(nova_largura)] for __ in range(nova_altura)]
+
+    for y in range(minY, maxY + 1):
+        for x in range(minX, maxX + 1):
+            nova_matriz[y - minY][x - minX] = matriz[y][x]
+    
+    return nova_matriz, nova_largura, nova_altura
+
 
 ######################################################################################
 
 def main():
 
-    #matriz, largura, altura = matriz_de_arquivo('../imagens/32_0.png')
+    #matriz, largura, altura = matriz_de_arquivo('../imagens/artigo.png')
 
     largura = altura = 64
     matriz = matriz_aleatoria(largura)
+    matriz, largura, altura = crop(matriz, largura, altura)
+    while largura < 16 or altura < 16:
+        largura = altura = 64
+        matriz = matriz_aleatoria(largura)
+        matriz, largura, altura = crop(matriz, largura, altura)
 
     pintar_impossiveis(matriz, largura, altura)
     percursos = gerarPercursos(range(largura), range(altura))
-    percurso, paridade = melhor_percurso(matriz, percursos, largura, altura)
+    percurso, tipo, paridade, embutidos = melhor_percurso(matriz, percursos, largura, altura)
     preencher_percurso(matriz, largura, altura, percurso, paridade)
     pintar_buracos(matriz, largura, altura)
 
-    gerar_relatorio(quantidade_blocos(matriz, largura, altura))
+    gerar_relatorio(quantidade_blocos(matriz, largura, altura), largura, altura, tipo, embutidos)
 
-    matriz_para_imagem(matriz, largura, altura, 8, False).show()
-
+    #matriz_para_imagem(matriz, largura, altura, 8, True).show()
 
 if __name__ == "__main__":
     main()
