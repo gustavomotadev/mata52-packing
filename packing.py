@@ -1,6 +1,7 @@
+from copy import copy
 from enum import IntEnum
-from copy import copy, deepcopy
 from random import random
+from sys import argv
 
 try:
     from PIL import Image
@@ -58,16 +59,29 @@ enumEspirais = {
     #15: (False, True, 3)
 }
 
+#dicionario utilitario com posicoes de celulas para funcoes
+paridade_dict = {
+    0: [(0, 0), (0, 1), (1, 0), (1, 1)],
+    1: [(0, 0), (0, -1), (1, 0), (1, -1)],
+    2: [(0, 0), (0, 1), (-1, 0), (-1, 1)],
+    3: [(0, 0), (0, -1), (-1, 0), (-1, -1)]
+}
+
+#funcao utilitaria
+#checa se uma coordenada esta dentro ou fora dos limites da matriz
+def dentro(largura, altura, x, y):
+    if x < 0 or y < 0 or not x < largura or not y < altura:
+        return False
+    else:
+        return True
+
 #funcao utilitaria para a funcao random_fill()
 #assegura que a figura gerada se concentre no centro
 #e cresca aleatoriamente até próximo das bordas
 #modificar os pesos modifica o estilo de figura gerada
 def nova_chance(x, y, largura):
-    if x == int(largura/2)  and y == int(largura/2):
-        return 1
-    else:
-        return (1 / (1 + ( ((x-(largura/2))/(largura/4))**2 + 
-            ((y-(largura/2))/(largura/4))**2) ))*0.30 + random()*0.70
+    return (1 / (1 + ( ((x-(largura/2))/(largura/4))**2 + 
+        ((y-(largura/2))/(largura/4))**2) ))*0.30 + random()*0.70
 
 #implementacao iterativa de um algoritmo recursivo baseado no 
 #flood fill porem com condicao de parada aleatoria
@@ -87,12 +101,15 @@ def random_fill(matriz, largura, valor, chance, iniX, iniY):
 
     while p < t:
 
+        #checar se deve preencher celula
         if (random() < nova_chance(lista[p][X], lista[p][Y], largura) and
-            lista[p][X] > 0 and lista[p][X] < largura and 
-            lista[p][Y] > 0 and lista[p][Y] < largura and 
+            dentro(largura, largura, lista[p][X], lista[p][Y]) and 
             matriz[lista[p][Y]][lista[p][X]] != valor):
-
+            
+            #pintar celula
             matriz[lista[p][Y]][lista[p][X]] = valor
+            
+            #adicionar mais 4 celulas, equivalente a 4 chamadas recursivas
             t += 4
             lista.append((lista[p][X]-1, lista[p][Y]))
             lista.append((lista[p][X], lista[p][Y]-1))
@@ -113,11 +130,14 @@ def flood_fill(matriz, largura, preencher, valor, iniX, iniY):
 
     while p < t:
 
-        if (lista[p][X] >= 0 and lista[p][X] < largura and 
-            lista[p][Y] >= 0 and lista[p][Y] < largura and 
+        #checar se deve preencher celula
+        if (dentro(largura, largura, lista[p][X], lista[p][Y]) and 
             matriz[lista[p][Y]][lista[p][X]] == preencher):
 
+            #pintar a celula
             matriz[lista[p][Y]][lista[p][X]] = valor
+            
+            #adicionar mais 4 celulas, equivalente a 4 chamadas recursivas
             t += 4
             lista.append((lista[p][X]-1, lista[p][Y]))
             lista.append((lista[p][X], lista[p][Y]-1))
@@ -202,66 +222,29 @@ if hasPIL:
 
         return img_dest
 
-#funcao utilitaria
-#checa se uma coordenada esta dentro ou fora dos limites da matriz
-def dentro(matriz, largura, altura, x, y):
-    if x < 0 or y < 0 or not x < largura or not y < altura:
-        return False
-    else:
-        return True
-
 #encontra a n-paridade de uma celula da matriz
 def paridade(matriz, largura, altura, par, x, y):
-    lista = []
 
-    if par == 0:
-        lista.extend([(y, x), (y, x+1), (y+1, x), (y+1, x+1)])
-    elif par == 1:
-        lista.extend([(y, x), (y, x-1), (y+1, x-1), (y+1, x)])
-    elif par == 2:
-        lista.extend([(y, x), (y, x+1), (y-1, x), (y-1, x+1)])
-    elif par == 3:
-        lista.extend([(y, x), (y, x-1), (y-1, x), (y-1, x-1)])
-
-    #print(lista)
-    for celula in lista:
-        if (not dentro(matriz, largura, altura, celula[1], celula[0]) or 
-            matriz[celula[0]][celula[1]] != TipoBloco.DISPONIVEL):
+    for celula in paridade_dict[par]:
+        if (not dentro(largura, altura, celula[1]+x, celula[0]+y) or 
+            matriz[celula[0]+y][celula[1]+x] != TipoBloco.DISPONIVEL):
             return False
     
     return True
 
 #encontra quantas n-paridades uma celula possui
 def num_paridades(matriz, largura, altura, x, y):
-    sum = 0
+    soma = 0
     for par in range(4):
         if paridade(matriz, largura, altura, par, x, y):
-            sum += 1
-    return sum
+            soma += 1
+    return soma
 
 #faz o processo de embutir um bloco 2x2 no local especificado
 #so deve ser chamado apos checar que e possivel faze-lo
 def preencher(matriz, par, x, y):
-    if par == 0:
-        matriz[y][x] = TipoBloco.PREENCHIDO
-        matriz[y][x+1] = TipoBloco.PREENCHIDO
-        matriz[y+1][x] = TipoBloco.PREENCHIDO
-        matriz[y+1][x+1] = TipoBloco.PREENCHIDO
-    elif par == 1:
-        matriz[y][x] = TipoBloco.PREENCHIDO
-        matriz[y][x-1] = TipoBloco.PREENCHIDO
-        matriz[y+1][x-1] = TipoBloco.PREENCHIDO
-        matriz[y+1][x] = TipoBloco.PREENCHIDO
-    elif par == 2:
-        matriz[y][x] = TipoBloco.PREENCHIDO
-        matriz[y][x+1] = TipoBloco.PREENCHIDO
-        matriz[y-1][x] = TipoBloco.PREENCHIDO
-        matriz[y-1][x+1] = TipoBloco.PREENCHIDO
-    elif par == 3:
-        matriz[y][x] = TipoBloco.PREENCHIDO
-        matriz[y][x-1] = TipoBloco.PREENCHIDO
-        matriz[y-1][x] = TipoBloco.PREENCHIDO
-        matriz[y-1][x-1] = TipoBloco.PREENCHIDO
+    for celula in paridade_dict[par]:
+        matriz[celula[0]+y][celula[1]+x] = TipoBloco.PREENCHIDO
 
 #funcao de visualizacao, gera um mapa de tons de vermelho, laranja e amarelo
 #mostrando o numero de n-paridades de cada celula
@@ -276,6 +259,16 @@ def mapear_paridade(matriz, largura, altura):
             matriz[y][x] = num_paridades(matriz_cp, largura, altura, x, y) + PAR_OFFSET
 
 #funcao de visualizacao
+#usada para pintar os blocos impossiveis de rosa
+def pintar_impossiveis(matriz, largura, altura):
+    for y in range(altura):
+        for x in range(largura):
+            if (matriz[y][x] == TipoBloco.DISPONIVEL and 
+                num_paridades(matriz, largura, altura, x, y) == 0):
+
+                matriz[y][x] = TipoBloco.IMPOSSIVEL
+
+#funcao de visualizacao
 #serve para colocar a cor verde nos buracos
 def pintar_buracos(matriz, largura, altura):
     for y in range(altura):
@@ -283,6 +276,17 @@ def pintar_buracos(matriz, largura, altura):
             if (matriz[y][x] == TipoBloco.DISPONIVEL and 
                 num_paridades(matriz, largura, altura, x, y) == 0):
                 matriz[y][x] = TipoBloco.BURACO
+
+#essa funcao e utilizada para preencher e para simular o preenchimento de percursos
+def preencher_percurso(matriz, largura, altura, percurso, par):
+    soma = 0
+    
+    for point in percurso:
+        if paridade(matriz, largura, altura, par, point[0], point[1]):
+            preencher(matriz, par, point[0], point[1])
+            soma += 1
+    
+    return soma
 
 #funcao que gera os percursos de varredura e boustrophedon
 #suas variaveis controlam as carcteristicas do percurso
@@ -406,7 +410,6 @@ def calcular_percurso(matriz, largura, altura, percurso):
         
         soma[p] = preencher_percurso(matrizes[p], largura, altura, percurso, p)
 
-    print(soma) #DEBUG
     return soma
 
 #essa funcao usa calcular_percurso() para descobrir qual dos percursos
@@ -426,34 +429,10 @@ def melhor_percurso(matriz, percursos, largura, altura):
                 melhor_soma = soma
                 melhor_percurso = percurso
 
-    #DEBUG
-    print((percursos.index(melhor_percurso), melhor_paridade, melhor_soma[melhor_paridade]))
-
     return (melhor_percurso, 
         percursos.index(melhor_percurso), 
         melhor_paridade, 
         melhor_soma[melhor_paridade])
-
-#essa funcao e utilizada para preencher e para simular o preenchimento de percursos
-def preencher_percurso(matriz, largura, altura, percurso, par):
-    soma = 0
-    
-    for point in percurso:
-        if paridade(matriz, largura, altura, par, point[0], point[1]):
-            preencher(matriz, par, point[0], point[1])
-            soma += 1
-    
-    return soma
-
-#funcao de visualizacao
-#usada para pintar os blocos impossiveis de rosa
-def pintar_impossiveis(matriz, largura, altura):
-    for y in range(altura):
-        for x in range(largura):
-            if (matriz[y][x] == TipoBloco.DISPONIVEL and 
-                num_paridades(matriz, largura, altura, x, y) == 0):
-
-                matriz[y][x] = TipoBloco.IMPOSSIVEL
 
 #funcao para gerar metricas para relatorio em texto
 def borda(matriz, largura, altura, x, y):
@@ -468,15 +447,6 @@ def borda(matriz, largura, altura, x, y):
         return True
     
     return False
-
-#funcao de visualizacao
-#utilizada para depuracao (debug)
-def pintar_borda(matriz, largura, altura):
-    for y in range(altura):
-        for x in range(largura):
-            if borda(matriz, largura, altura, x, y):
-
-                matriz[y][x] = 5
 
 #funcao utilizada para gerar relatorios sobre as quantidades de cada
 #bloco ou caracteristica relevante da solucao
@@ -575,10 +545,18 @@ def matriz_aleatoria_limitada(minL, maxL):
 
 def main():
 
+    if len(argv) == 3:
+        try:
+            minimo = int(argv[1])
+            maximo = int(argv[2])
+        except:
+            minimo = 16
+            maximo = 64
+
     #usar para obter problema de arquivo, apenas se tiver o modulo PIL
     #matriz, largura, altura = matriz_de_arquivo('..nome_do_arquivo.png')
 
-    matriz, largura, altura = matriz_aleatoria_limitada(16, 64)
+    matriz, largura, altura = matriz_aleatoria_limitada(minimo, maximo)
 
     pintar_impossiveis(matriz, largura, altura)
     percursos = gerarPercursos(range(largura), range(altura))
@@ -588,7 +566,8 @@ def main():
 
     gerar_relatorio(quantidade_blocos(matriz, largura, altura), largura, altura, tipo, embutidos)
 
-    matriz_para_imagem(matriz, largura, altura, 8, True).show()
+    if hasPIL:
+        matriz_para_imagem(matriz, largura, altura, 8, True).show()
 
 if __name__ == "__main__":
     main()
