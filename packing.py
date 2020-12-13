@@ -545,13 +545,19 @@ def matriz_aleatoria_limitada(minL, maxL):
 
 def main():
 
+    MIN = 16
+    MAX = 64
+
     if len(argv) == 3:
         try:
             minimo = int(argv[1])
             maximo = int(argv[2])
         except:
-            minimo = 16
-            maximo = 64
+            minimo = MIN
+            maximo = MAX
+    else:
+        minimo = MIN
+        maximo = MAX
 
     #usar para obter problema de arquivo, apenas se tiver o modulo PIL
     #matriz, largura, altura = matriz_de_arquivo('..nome_do_arquivo.png')

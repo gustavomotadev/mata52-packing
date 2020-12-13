@@ -5,12 +5,27 @@ dados = pd.read_csv('dados.csv', ';', header=0)
 
 dados = dados[dados.tipo != 'Espiral Decrescente ']
 
+print('--- Quantidade de Dados ---')
+print(len(dados))
+
 minimos = dados.min()
 maximos = dados.max()
 medias = dados.mean()
-desvio = dados.std()
+medianas = dados.median()
+desvios = dados.std()
 minimos.pop('tipo')
 maximos.pop('tipo')
+
+print('--- Mínimos ---')
+print(minimos)
+print('--- Máximos ---')
+print(maximos)
+print('--- Médias ---')
+print(medias)
+print('--- Medianas ---')
+print(medianas)
+print('--- Desvios ---')
+print(desvios)
 
 frequencia_tipos = dados['tipo'].value_counts()
 
@@ -35,7 +50,7 @@ plt.subplots_adjust(wspace=0.7)
 plt.show()
 
 plt.figure()
-plt.title("Porcentagem de Problemas Resolvidos por Método")
+plt.title("Porcentagem de Problemas Resolvidos por Classe")
 plt.pie(x=list(frequencia_tipos), explode=[0.01, 0.01, 0.01], 
     autopct=lambda x: str(round(x,2))+'%', 
     textprops={'color': 'black', 'weight': 'bold'},
